@@ -1,4 +1,4 @@
-Project 1 — Network Scanner with Nmap
+# Project 1 — Network Scanner with Nmap
 
 What this project does
 Scans a local network to discover live hosts, open ports, and running services
