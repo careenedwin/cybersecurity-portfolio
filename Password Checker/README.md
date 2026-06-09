@@ -40,22 +40,6 @@ The tool estimates crack time assuming a modern GPU running
 | 🟢 Very Strong | 70+ bits | Centuries+ |
 
 
-## Sample output
-Password : **********
-Rating   : 🟢 VERY STRONG
-Score    : 8/8
-Entropy  : 87.6 bits
-Est. crack time (GPU): 4.23e+14 years
-What's good:
--✓Excellent length (16+)
--✓ Contains uppercase letters
--✓ Contains lowercase letters
--✓ Contains numbers
--✓ Contains special characters
-What to fix:
-(none)
-
-
 ## How to run it
 
 **Requirements:** Python 3 (no extra libraries needed — uses only built-in modules)
