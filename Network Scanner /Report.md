@@ -1,115 +1,172 @@
-# Network Scan Report
+# Network Scanner — Project Report
 
-**Date:** 2026-06-08  
-**Tool:** Nmap 7.95  
-**Target:** 172.17.19.0/24  
+**Tool:** Nmap 7.95
 
+## Objective
 
-## Summary
-
-Scanned 256 IP addresses. Found 19 live hosts, 8 with open ports.
-One critical misconfiguration was identified (exposed MySQL database).
+To learn how network reconnaissance works by using Nmap to discover
+devices and services on a local network, and to understand what
+the results mean from a security perspective.
 
 
-## Hosts discovered
+## How the tool works
 
-| IP Address | Open Ports | Device type (guessed) |
-|------------|------------|-----------------------|
-| 172.17.19.2 | 22, 80, 443 | University server |
-| 172.17.19.3 | 22, 80, 443 | University server |
-| 172.17.19.4 | 22, 80, 443, 16113 | Server (unknown service on 16113) |
-| 172.17.19.6 | 22, 80, 443 | University server |
-| 172.17.19.8 | 22, 80, 443 | University server |
-| 172.17.19.10 | 80, 443 | Firewalled host |
-| 172.17.19.15 | 22, 53, 443 | DNS server |
-| 172.17.19.16 | 22, 80, 443 | Server with firewall |
-| 172.17.19.26 | 22, 80, 111, 443 | File-sharing server (NFS) |
-| 172.17.19.36 | 22, 80, 3306 | **CRITICAL — exposed database** |
-| 172.17.19.49 | none | My own machine (Parrot OS) |
-| 172.17.19.80 | 80, 631 | Network printer |
-| 172.17.19.106 | 15 filtered ports | Heavily protected server |
-| 172.17.19.131 | 5000, 7000, 9009 | Unknown device (unusual ports) |
+### Host discovery
 
+The first scan phase uses ICMP echo requests to find live devices.
+Nmap sends a ping to every address in the target range and records
+which ones respond. Devices that do not respond are either offline
+or configured to ignore pings — the latter is itself a basic security
+measure called ICMP filtering.
 
-## Critical finding
+The response latency also provides useful information. Wired devices
+typically respond in under 20ms. Wireless or mobile devices often
+show 100ms or higher. Very high latency (300ms+) can indicate a
+device that is partially asleep, heavily loaded, or located further
+away on a routed network.
 
-**Host:** 172.17.19.36  
-**Port:** 3306 (MySQL)  
-**Risk:** Critical
+### Port scanning
 
-Port 3306 is the default MySQL database port. Having it open on a shared
-network means any device on this subnet could attempt to connect directly
-to the database without going through a web application layer. An attacker
-could try default credentials (root with no password) or brute-force access.
-If successful, they could read, modify, or delete all data in the database.
+Nmap scans the 1000 most commonly used TCP ports on each live host.
+It uses a SYN scan — sending a TCP SYN packet and reading the response
+without completing the handshake. This determines whether each port
+is open, closed, or filtered by a firewall.
 
-**Recommendation:** The MySQL service should be bound to localhost only
-(127.0.0.1) and never exposed on a network interface. A firewall rule should
-block port 3306 from all external connections.
+The distinction between closed and filtered is important from a
+security perspective. A closed port tells an attacker the port number
+is valid but nothing is listening. A filtered port reveals nothing
+about what is behind it, making it harder to plan an attack.
+Filtered ports are therefore more secure.
 
+### Service and version detection
 
-## Other notable findings
+Once open ports are identified, Nmap sends targeted probes to each
+one to identify the software running and its version number. It
+matches responses against a database of known service signatures.
 
-| Host | Port | Service | Notes |
-|------|------|---------|-------|
-| 172.17.19.15 | 53 | DNS | DNS server for the network — normal |
-| 172.17.19.26 | 111 | rpcbind | NFS file sharing exposed — should be firewalled |
-| 172.17.19.80 | 631 | IPP | Network printer — normal |
-| 172.17.19.106 | 5902 | VNC | Remote desktop — filtered but present |
-| 172.17.19.131 | 5000, 7000, 9009 | Unknown | Unusual ports — needs investigation |
+This phase is the most valuable for security assessment because
+it turns a list of open ports into actionable intelligence. A port
+number alone tells you what service is expected. The version number
+tells you whether that service is up to date and whether known
+vulnerabilities (CVEs) apply to it.
 
 
+## Port risk analysis
 
-## What I learned
+### High-risk ports
 
-Running this scan showed me how much information is visible to anyone on a
-shared network without any authentication. The most important finding was the
-exposed MySQL port on .36 — in a real penetration test this would be
-immediately escalated as a critical vulnerability. I also learned to
-distinguish between "closed" ports (the service replied with RST — port
-exists but nothing is listening) and "filtered" ports (a firewall is silently
-dropping packets — more secure). The cluster of servers (.2, .3, .6, .8)
-with identical port profiles suggests centrally managed university
-infrastructure, possibly behind a load balancer.
+**Port 3306 — MySQL**
+A database port should never be accessible on a network interface.
+MySQL should always be bound to localhost (`127.0.0.1`) so that
+only applications running on the same machine can connect. When
+exposed on a network, any device on the subnet can attempt to
+connect and try credentials. Attackers typically try default
+credentials first (root with no password) before attempting brute
+force. A successful connection gives full access to all databases
+on the server.
 
+Correct fix: set `bind-address = 127.0.0.1` in the MySQL
+configuration file and add a firewall rule blocking port 3306.
+
+**Port 5900+ — VNC**
+VNC provides full graphical remote desktop access. If not protected
+by strong authentication and encryption, it allows complete control
+of a machine remotely. VNC has a history of vulnerabilities and
+should only ever be accessible via a VPN or SSH tunnel, never
+directly on a network.
+
+### Medium-risk ports
+
+**Port 22 — SSH**
+SSH is necessary for remote server management but is a constant
+target for brute-force attacks. Best practice requires disabling
+password authentication entirely and using key-based authentication
+only. Port 22 should also be restricted to known IP addresses via
+firewall rules where possible.
+
+**Port 111 — rpcbind**
+rpcbind is used by NFS (network file sharing). It has a history
+of vulnerabilities and should be firewalled so it is not accessible
+from outside the host that needs it. Exposed rpcbind on a shared
+network is an unnecessary risk.
+
+### Low-risk ports (in normal configurations)
+
+**Port 80 / 443 — HTTP / HTTPS**
+Web servers are expected to be publicly accessible. Port 80 serves
+unencrypted traffic — modern web servers should redirect all HTTP
+to HTTPS. Port 443 serves encrypted traffic and is generally safe
+when the server software is kept up to date.
+
+**Port 53 — DNS**
+A DNS server on the network is expected and normal. Risk is low
+unless the DNS server is misconfigured to allow zone transfers to
+unauthorised clients, which could reveal the full list of hostnames
+on a network.
+
+**Port 631 — IPP**
+Internet Printing Protocol identifies a network printer. The risk
+is low but the web interface on port 80 of a printer should be
+checked for default credentials, as many printers ship with no
+password set.
+
+
+## Defensive recommendations
+
+Based on the port types commonly found during this exercise:
+
+| Finding | Recommendation |
+|---------|---------------|
+| Database port exposed | Bind to localhost, block with firewall |
+| Outdated web server | Upgrade to current stable version |
+| SSH open | Disable password auth, use keys only |
+| rpcbind exposed | Restrict with firewall rules |
+| VNC accessible | Tunnel through SSH or restrict to VPN only |
+| No HTTPS redirect | Force all HTTP traffic to HTTPS |
+
+---
+
+## Key concepts learned
+
+**Reconnaissance is passive information gathering.**
+No exploitation occurs during a scan. The value is in understanding
+the attack surface — what is visible, what versions are running, and
+what an attacker would see if they scanned the same network.
+
+**Every open port is a potential entry point.**
+This does not mean every open port is a vulnerability. It means every
+open port deserves a justification. If a service is running on a port
+and there is no clear reason for it to be there, it should be closed.
+
+**Version information is critical.**
+Knowing that a host runs nginx 1.18.0 allows a direct lookup of known
+CVEs for that version. This turns a scan from a curiosity into an
+actionable security assessment. Tools like `searchsploit` and the
+National Vulnerability Database (NVD) can be queried with version
+numbers to find exploits.
+
+**Firewalls change what you see.**
+A filtered port tells you more than a closed one — it tells you a
+firewall is present and actively protecting that host. Analysing
+which hosts are heavily filtered versus which have many open ports
+reveals the network's security architecture.
 
 
 ## Tools used
 
-- `nmap -sn 172.17.19.0/24` — host discovery
-- `nmap 172.17.19.0/24 -oN ports.txt` — port scan with saved output
+```bash
+nmap -sn TARGET/24        # Phase 1: host discovery
+nmap TARGET/24            # Phase 2: port scan
+nmap -sV TARGET/24        # Phase 3: version detection
+sudo nmap -O TARGET/24    # Optional: OS detection
+```
 
- ## Critical finding
+All output was saved using the `-oN` flag for documentation.
 
-**Host:** 172.17.19.36  
-**Port:** 3306  
-**Service:** MySQL (version scan returned "unauthorized")  
-**OS:** Ubuntu Linux  
-**Risk level:** Critical  
 
-### What was found
-Nmap successfully connected to port 3306 and received a response from MySQL,
-confirming the database service is reachable from anywhere on the network.
-The response "unauthorized" means MySQL is actively listening and rejected
-the connection only because no credentials were supplied — not because of
-a firewall.
+## References
 
-The web server running on port 80 is nginx 1.18.0 (released 2020), which
-is outdated. Current stable is 1.26.x. Outdated nginx versions may contain
-known CVEs exploitable via crafted HTTP requests.
+- Nmap documentation — https://nmap.org/docs.html
+- NIST National Vulnerability Database — https://nvd.nist.gov
+- Common ports reference — IANA port assignments
 
-SSH is running OpenSSH 8.9p1 which is a current version. Risk is low
-provided password authentication is disabled and only key-based login allowed.
-
-### Why this is dangerous
-Any machine on the 172.17.19.0/24 subnet can attempt to:
-1. Connect directly to the MySQL database on port 3306
-2. Try default credentials (root / empty password)
-3. Run brute-force or credential-stuffing attacks
-4. If successful — read, modify, or delete all database contents
-
-### Recommendation
-- Bind MySQL to localhost only: set `bind-address = 127.0.0.1` in `/etc/mysql/mysql.conf.d/mysqld.cnf`
-- Add a firewall rule: `sudo ufw deny 3306`
-- Upgrade nginx to current stable version (1.26.x)
-- Verify SSH password authentication is disabled: `PasswordAuthentication no` in `/etc/ssh/sshd_config`
