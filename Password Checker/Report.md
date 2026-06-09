@@ -2,8 +2,6 @@
 
 **Date:** 2026-06-08
 **Tool:** Custom Python 3 script
-**Author:** Careen | University of Dodoma
-**Project:** Cybersecurity Portfolio — Project 2
 
 
 ## Objective
