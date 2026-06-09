@@ -47,11 +47,11 @@ Score    : 8/8
 Entropy  : 87.6 bits
 Est. crack time (GPU): 4.23e+14 years
 What's good:
-✓ Excellent length (16+)
-✓ Contains uppercase letters
-✓ Contains lowercase letters
-✓ Contains numbers
-✓ Contains special characters
+-✓Excellent length (16+)
+-✓ Contains uppercase letters
+-✓ Contains lowercase letters
+-✓ Contains numbers
+-✓ Contains special characters
 What to fix:
 (none)
 
