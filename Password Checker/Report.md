@@ -1,7 +1,7 @@
 # Password Strength Checker — Project Report
 
-**Date:**2026-06-08
-**Tool:**Custom Python 3 script
+**Date:**  2026-06-08
+**Tool:**  Custom Python 3 script
 
 
 ## Objective
